@@ -70,7 +70,13 @@
 
 \ExplSyntaxOff
 
-\mode<beamer>{\newcommand\animation[3]{\slidesAnimate{#1}{#3}}}
-\mode<handout>{\newcommand\animation[3]{\slidesAnimate{#1}{#2}}}
+% \ifelsehandout{<handout>}{<presentation>}
+% Splitting on handout rather than naming modes keeps trans working.
+\newcommand\ifelsehandout[2]{#2}
+\mode<handout>{\renewcommand\ifelsehandout[2]{#1}}
+
+% The branch wraps the whole call: passing \ifelsehandout as the list argument would
+% hand \clist_count:n an unexpanded macro rather than a comma list.
+\newcommand\animation[3]{\ifelsehandout{\slidesAnimate{#1}{#2}}{\slidesAnimate{#1}{#3}}}
 
 \mode<all>
