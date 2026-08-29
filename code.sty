@@ -1,0 +1,32 @@
+\usepackage[most]{tcolorbox}
+\tcbuselibrary{minted}
+
+\definecolor{codeR}{RGB}{31,78,121}
+\definecolor{codeCpp}{RGB}{101,60,140}
+\definecolor{codePy}{RGB}{31,109,64}
+
+\setminted{fontsize=\small, breaklines, autogobble, tabsize=2}
+
+\tcbset{
+    codebox/.style = {
+            listing only,
+            enhanced,
+            breakable,
+            sharp corners,
+            parbox = false,
+            colback = black!2,
+            frame hidden,
+            borderline west = {0.5mm}{0mm}{#1},
+            fonttitle = \ttfamily\small,
+            coltitle = black!70,
+            colbacktitle = black!2,
+        }
+}
+
+\newtcblisting{rcode}[1][]{codebox = codeR, minted language = r, title = {#1}}
+\newtcblisting{cppcode}[1][]{codebox = codeCpp, minted language = cpp, title = {#1}}
+\newtcblisting{pycode}[1][]{codebox = codePy, minted language = python, title = {#1}}
+
+\newmintinline[rinl]{r}{}
+\newmintinline[cppinl]{cpp}{}
+\newmintinline[pyinl]{python}{}

@@ -1,0 +1,104 @@
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{derivative}
+\usepackage[super]{nth}
+\usepackage{siunitx}
+\usepackage{bm}
+\usepackage{mathtools}
+\usepackage{stmaryrd}
+\usepackage{accents}
+\usepackage{cancel}
+
+\usepackage{physics2}
+\usephysicsmodule{ab}
+\usephysicsmodule{xmat}
+\providecommand{\cosh}{\mathrm{cosh}}
+\providecommand{\sinh}{\mathrm{sinh}}
+\providecommand{\tanh}{\mathrm{tanh}}
+\providecommand{\sech}{\mathrm{sech}}
+\providecommand{\csch}{\mathrm{csch}}
+\providecommand{\coth}{\mathrm{coth}}
+\providecommand{\log}{\mathrm{log}}
+\providecommand{\ln}{\mathrm{ln}}
+\renewcommand{\phi}{\varphi}
+
+\newcommand{\grad}[1]{\vb{\nabla}#1}
+
+\makeatletter
+\newcommand\vb{\@ifstar\boldsymbol\bm}
+\newcommand\va[1]{\@ifstar{\vec{#1}}{\vec{\mathrm{#1}}}}
+\newcommand\vu[1]{ \@ifstar{\hat{\boldsymbol{#1}}}{\hat{\mathbf{#1}}}}
+\makeatother
+
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepgfplotslibrary{groupplots}
+
+\usepackage{tikz}
+\usetikzlibrary{angles,quotes,decorations.markings, calc, arrows.meta}
+\usetikzlibrary{positioning}
+
+\newcommand{\set}[1]{\left\{ #1 \right\}}
+\newcommand{\avg}[1]{\langle #1 \rangle}
+\newcommand{\abs}[1]{\ab| #1 |}
+\newcommand{\norm}[1]{\ab\lVert #1 \rVert}
+\newcommand{\eval}{\bigg\rvert}
+\newcommand{\indep}{\perp\!\!\!\perp}
+
+\newcommand{\idx}[2]{{#1}^{(#2)}}
+\newcommand{\idxT}[2]{{#1}^{(#2)T}}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\diag}{diag}
+\DeclareMathOperator*{\sign}{sign}
+\DeclareMathOperator{\poly}{poly}
+
+\DeclareMathOperator{\rank}{rank}
+\DeclareMathOperator{\image}{Im}
+\DeclareMathOperator{\kernel}{Ker}
+\DeclareMathOperator{\Tr}{\mathbf{Tr}}
+
+\newcommand{\floor}[1]{\lfloor#1\rfloor}
+\newcommand{\ceil}[1]{\lceil#1\rceil}
+\newcommand{\arange}[1]{\llbracket#1\rrbracket}
+
+\newcommand{\R}{\mathcal{R}}
+\newcommand{\C}{\mathcal{C}}
+\newcommand{\N}{\mathcal{N}}
+
+\newcommand{\X}{\mathcal{X}}
+\newcommand{\Y}{\mathcal{Y}}
+\newcommand{\Z}{\mathcal{Z}}
+\newcommand{\D}{\mathcal{D}}
+
+\usepackage{amsthm}
+\usepackage{thmtools}
+
+\declaretheoremstyle[
+    spaceabove=\topsep,
+    spacebelow=\topsep,
+    headindent=0pt,
+    headfont=\bfseries,
+    postheadspace=5pt plus 1pt minus 1pt,
+    headpunct=\(\colon\),
+    notefont=\bfseries,
+]{theorem}
+
+\declaretheorem[style=theorem, numbered=no, name=Definition]{defn}
+\declaretheorem[style=theorem, numbered=no, name=Example]{ex}
+\declaretheorem[style=theorem, numbered=no, name=Theorem]{thrm}
+\declaretheorem[style=theorem, numbered=no, name=Proposition]{prop}
+\declaretheorem[style=theorem, numbered=no, name=Lemma]{lem}
+\declaretheorem[style=theorem, numbered=no, name=Corollary]{cor}
+\declaretheorem[style=theorem, numbered=no, name=Exercise]{exercise}
+
+\declaretheoremstyle[
+    spaceabove=\topsep,
+    spacebelow=12pt,
+    headindent=0pt,
+    headfont=\bfseries,
+    postheadspace=5pt plus 1pt minus 1pt,
+    headpunct=\(\colon\),
+    notefont=\bfseries,
+]{solution}
+\declaretheorem[style=solution, numbered=no, name=Proof]{pf}

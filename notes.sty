@@ -1,0 +1,68 @@
+\usepackage{fullpage}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{enumitem}
+\usepackage{float}
+
+\usepackage[T1]{fontenc}
+\usepackage{times}
+\usepackage{helvet}
+\usepackage{courier}
+
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\renewcommand{\algorithmicrequire}{\textbf{Input:}}
+\renewcommand{\algorithmicensure}{\textbf{Output:}}
+\renewcommand{\algorithmiccomment}[1]{\textcolor{blue}{/*\, #1 */}}
+\numberwithin{algorithm}{chapter}
+
+\newtheorem{theorem}{Theorem}[chapter]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+\newtheorem{remark}[theorem]{Remark}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   solutions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage[most]{tcolorbox}
+
+\newtcolorbox{solution}
+{
+    enhanced,
+    breakable,
+    sharp corners,
+    parbox = false,
+    colback = black!5,
+    frame hidden,
+    borderline north = {0.5mm}{0mm}{black!5},
+    borderline south = {0.5mm}{0mm}{black!5},
+    borderline east = {0.5mm}{0mm}{black!5},
+    borderline west = {0.5mm}{0mm}{black!75!white},
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   toc
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage[hyphens]{url}
+\usepackage{hyperref}
+\hypersetup{linktoc=all}
+
+\usepackage{framed}
+\usepackage{xspace}
+
+\usepackage{tocloft}
+\renewcommand\cftsecfont{\normalfont}
+\renewcommand\cftsecpagefont{\normalfont}
+\renewcommand{\cftsecleader}{\cftdotfill{\cftsecdotsep}}
+\renewcommand\cftsecdotsep{\cftdot}
+\renewcommand\cftsubsecdotsep{\cftdot}
+
+%
+
+\usepackage[parfill]{parskip}
+\usepackage{setspace}
+\AtBeginDocument{\singlespacing}
