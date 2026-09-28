@@ -22,11 +22,9 @@
 \DeclareMathOperator{\Var}{\mathop{\mathbf{Var}}}
 \DeclareMathOperator{\Bias}{\mathop{\mathbf{Bias}}}
 
-\let\Pr\relax
-\DeclareMathOperator{\Pr}{\mathop{\mathbf{Pr}}}
+\renewcommand{\Pr}{\operatorname{\mathop{\mathbf{Pr}}}}
 \newcommand{\PrD}[2]{\mathop{\mathbf{Pr}}_{#1}\!\left(#2\right)}
-\let\exp\relax
-\DeclareMathOperator{\exp}{\mathop{\mathbf{exp}}}
+\renewcommand{\exp}{\operatorname{\mathop{\mathbf{exp}}}}
 
 \DeclareMathOperator{\RSS}{\mathop{\mathbf{RSS}}}
 \DeclareMathOperator{\TSS}{\mathop{\mathbf{TSS}}}
