@@ -1,5 +1,6 @@
 -- Quarto filter for Typst output: expands the math.sty and stat.sty macros in
--- math and renders their theorem environments. Covers math and theorem divs only.
+-- math, renders their theorem environments, and drops leading blank lines from
+-- code cell output.
 
 local sty_files = { "../math.sty", "../stat.sty" }
 
@@ -110,7 +111,19 @@ local function theorem(div)
   end
 end
 
+local function output(div)
+  if div.classes:includes("cell-output") then
+    return div:walk({
+      CodeBlock = function(block)
+        block.text = block.text:gsub("^%s*\n", "")
+        return block
+      end,
+    })
+  end
+end
+
 return {
   { Math = expand },
   { Div = theorem },
+  { Div = output },
 }
