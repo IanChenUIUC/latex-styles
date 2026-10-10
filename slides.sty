@@ -4,6 +4,8 @@
 \ProvidesPackage{slides}[2026/08/29 Neutral beamer base and figure animations]
 
 \RequirePackage{graphicx}
+\RequirePackage{pdfpages}
+\RequirePackage{tikz}
 
 \mode<presentation>
 
@@ -36,13 +38,18 @@
     \endgroup
 }
 
-% \animation{<title>}{<handout list>}{<presentation list>}
+% \blfootcite{<key>}: full reference as a \blfootnote; the document loads biblatex.
+\newcommand\blfootcite[1]{\blfootnote{\fullcite{#1}}}
 
-\newcommand\slides@animframe[2]{%
+% \animation[<bib key>]{<title>}{<handout list>}{<presentation list>}
+% With a bib key, every frame carries its \blfootcite.
+
+\newcommand\slides@animframe[3]{%
     \frame{%
         \frametitle{#1}%
         \centering
-        \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{#2}%
+        \includegraphics[width=\textwidth,height=0.7\textheight,keepaspectratio]{#2}%
+        \IfValueT{#3}{\blfootcite{#3}}%
     }%
 }
 
@@ -51,20 +58,20 @@
 \int_new:N \l__slides_step_int
 \int_new:N \l__slides_total_int
 
-\NewDocumentCommand \slidesAnimate { m m }
+\NewDocumentCommand \slidesAnimate { o m m }
 {
     \int_zero:N \l__slides_step_int
-    \int_set:Nn \l__slides_total_int { \clist_count:n {#2} }
-    \clist_map_inline:nn {#2}
+    \int_set:Nn \l__slides_total_int { \clist_count:n {#3} }
+    \clist_map_inline:nn {#3}
     {
         \int_incr:N \l__slides_step_int
         \int_compare:nNnTF { \l__slides_total_int } > { 1 }
             {
                 \slides@animframe
-                { #1 ~ ( \int_use:N \l__slides_step_int / \int_use:N \l__slides_total_int ) }
-                {##1}
+                { #2 ~ ( \int_use:N \l__slides_step_int / \int_use:N \l__slides_total_int ) }
+                {##1} {#1}
             }
-            { \slides@animframe {#1} {##1} }
+            { \slides@animframe {#2} {##1} {#1} }
     }
 }
 
@@ -77,6 +84,23 @@
 
 % The branch wraps the whole call: passing \ifelsehandout as the list argument would
 % hand \clist_count:n an unexpanded macro rather than a comma list.
-\newcommand\animation[3]{\ifelsehandout{\slidesAnimate{#1}{#2}}{\slidesAnimate{#1}{#3}}}
+\NewDocumentCommand\animation{o m m m}{\ifelsehandout{\slidesAnimate[#1]{#2}{#3}}{\slidesAnimate[#1]{#2}{#4}}}
+
+% \includeslides[<venue>]{<pdf>}{<page list>}{<bib key>}
+% Pages at their own size, without the theme background, attributed in the bottom-left corner
+% with the venue, or the entry's year when no venue is given.
+
+\newcommand\slides@attribution[2]{%
+    \begin{tikzpicture}[remember picture,overlay]
+        \node[anchor=south west, inner sep=2pt, font=\tiny]
+        at (current page.south west)
+        {\citeauthor{#2}, \citetitle{#2}\IfValueTF{#1}{, #1}{ (\citeyear{#2})}};
+    \end{tikzpicture}%
+}
+
+\NewDocumentCommand\includeslides{o m m m}{{%
+            \setbeamertemplate{background}{}%
+            \includepdf[pages={#3}, fitpaper=true, pagecommand={\slides@attribution{#1}{#4}}]{#2}%
+        }}
 
 \mode<all>
