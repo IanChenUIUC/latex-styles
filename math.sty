@@ -11,6 +11,7 @@
 
 \usepackage{physics2}
 \usephysicsmodule{ab}
+\usephysicsmodule{ab.legacy}
 \usephysicsmodule{xmat}
 \providecommand{\cosh}{\mathrm{cosh}}
 \providecommand{\sinh}{\mathrm{sinh}}
@@ -40,17 +41,14 @@
 
 \newcommand{\set}[1]{\left\{ #1 \right\}}
 \newcommand{\avg}[1]{\langle #1 \rangle}
-\newcommand{\abs}[1]{\ab| #1 |}
-\newcommand{\norm}[1]{\ab\lVert #1 \rVert}
-\newcommand{\eval}{\bigg\rvert}
 \newcommand{\indep}{\perp\!\!\!\perp}
 
 \newcommand{\idx}[2]{{#1}^{(#2)}}
 \newcommand{\idxT}[2]{{#1}^{(#2)T}}
 \DeclareMathOperator*{\argmax}{arg\,max}
 \DeclareMathOperator*{\argmin}{arg\,min}
-\DeclareMathOperator*{\diag}{diag}
-\DeclareMathOperator*{\sign}{sign}
+\DeclareMathOperator{\diag}{diag}
+\DeclareMathOperator{\sign}{sign}
 \DeclareMathOperator{\poly}{poly}
 
 \DeclareMathOperator{\rank}{rank}
