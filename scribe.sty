@@ -1,0 +1,67 @@
+% ----------------------------------------------------------------------
+%  Scribe notes header, after the MIT/Berkeley scribe.sty layout.
+%
+%  \title{Lecture Title}               \author{The Lecturer}
+%  \date{September 1}
+%  \course{CS 101}                     \coursetitle{Course Title}
+%  \semester{Fall 2000}                \scribe{The Scribe}
+%  \lecturenumber{3}
+%  \maketitle
+%
+%  \course, \coursetitle, \semester, \scribe, and \lecturenumber are
+%  optional. With a lecture number, pages are numbered <lecture>-<page>.
+% ----------------------------------------------------------------------
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+
+\def\course#1{\def\@course{#1}}
+\def\coursetitle#1{\def\@coursetitle{#1}}
+\def\semester#1{\def\@semester{#1}}
+\def\scribe#1{\def\@scribe{#1}}
+\def\lecturenumber#1{\def\@lecturenumber{#1}}
+\course{}\coursetitle{}\semester{}\scribe{}\lecturenumber{}
+
+\newcommand{\scribe@course}{%
+    \@course
+    \ifx\@course\@empty\else\ifx\@coursetitle\@empty\else: \fi\fi
+    \@coursetitle}
+\newcommand{\scribe@when}{\@semester\ifx\@semester\@empty\else, \fi\@date}
+\newcommand{\scribe@heading}{%
+    \ifx\@lecturenumber\@empty\else Lecture~\@lecturenumber: \fi\@title}
+\newcommand{\scribe@page}{\ifx\@lecturenumber\@empty\else\@lecturenumber-\fi\thepage}
+
+\fancypagestyle{scribe}{%
+    \fancyhf{}%
+    \fancyhead[L]{\textbf{\@course}}%
+    \fancyhead[C]{\textbf{\scribe@heading}}%
+    \fancyhead[R]{\textbf{\scribe@when}}%
+    \fancyfoot[C]{\scribe@page}%
+    \renewcommand{\headrulewidth}{0.4pt}%
+}
+\fancypagestyle{scribefirst}{%
+    \fancyhf{}%
+    \fancyfoot[C]{\scribe@page}%
+    \renewcommand{\headrulewidth}{0pt}%
+}
+
+\renewcommand{\maketitle}{%
+    \pagestyle{scribe}%
+    \thispagestyle{scribefirst}%
+    \begin{tcolorbox}[
+        sharp corners,
+        colback = white,
+        colframe = black,
+        boxrule = 0.4pt,
+        left = 2pt,
+        right = 2pt,
+        height = 0.75in,
+        after skip = \bigskipamount,
+    ]
+        \textbf{\scribe@course}\hfill\textbf{\scribe@when}
+        \vfill
+        {\centering\Large \scribe@heading\par}
+        \vfill
+        \textsl{Lecturer: \@author}\hfill
+        \ifx\@scribe\@empty\else\textsl{Scribe: \@scribe}\fi
+    \end{tcolorbox}
+}
