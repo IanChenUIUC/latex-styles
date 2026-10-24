@@ -45,6 +45,64 @@
 }
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   exercises
+%
+%   \begin{exercise}[<name>] <problem> \soln <solution> \end{exercise}
+%   \printsolutions
+%
+%   The solution is printed by \printsolutions instead of in place.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\exercise@file}{\jobname-sol-\thetcbcounter.tex}
+\newcommand{\soln}{\tcblower}
+
+\ExplSyntaxOn
+\iow_new:N \g__exercise_iow
+\cs_new_protected:Npn \exercise@clear #1
+  {
+    \iow_open:Nn \g__exercise_iow {#1}
+    \iow_close:N \g__exercise_iow
+  }
+\cs_new_protected:Npn \exercise@solution #1#2
+  {
+    \int_compare:nNnT { 0 \file_size:n {#2} } > { 0 }
+      {
+        \begin{solution}
+          \textbf{Solution~to~\hyperlink{exercise.#1}{Exercise~#1}:}~
+          \input{#2}
+        \end{solution}
+      }
+  }
+\ExplSyntaxOff
+
+\newtcolorbox[auto counter, number within=section]{exercise}[1][]
+{
+    enhanced,
+    breakable,
+    sharp corners,
+    parbox = false,
+    colback = white,
+    frame hidden,
+    borderline west = {0.5mm}{0mm}{black!75!white},
+    title = {Exercise~\thetcbcounter\if\relax\detokenize{#1}\relax\else\ (#1)\fi},
+    detach title,
+    coltitle = black,
+    redirectlowerto = \exercise@file,
+    before upper = {%
+        \protected@edef\@currentlabel{\thetcbcounter}%
+        \hypertarget{exercise.\thetcbcounter}{}%
+        \exercise@clear{\exercise@file}%
+        \tcbrecord{\string\exercise@solution{\thetcbcounter}{\exercise@file}}%
+        \textbf{\tcbtitle:}\ %
+    },
+}
+
+\AtBeginDocument{\tcbstartrecording}
+\newcommand{\printsolutions}{%
+    \tcbstoprecording
+    \begingroup\makeatletter\tcbinputrecords\endgroup
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %   toc
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \usepackage[hyphens]{url}
