@@ -1,6 +1,6 @@
 -- Quarto filter for Typst output: expands the math.sty and stat.sty macros in
--- math, translates the package commands in `commands` to Typst, and renders
--- the theorem environments. Covers math and theorem divs only.
+-- math, translates the package commands in `commands` to Typst, renders the
+-- theorem environments, and drops leading blank lines from code cell output.
 
 local sty_files = { "../math.sty", "../stat.sty" }
 
@@ -265,6 +265,17 @@ local function theorem(div)
   end
 end
 
+local function output(div)
+  if div.classes:includes("cell-output") then
+    return div:walk({
+      CodeBlock = function(block)
+        block.text = block.text:gsub("^%s*\n", "")
+        return block
+      end,
+    })
+  end
+end
+
 local function add_imports(doc)
   for pkg, fns in pairs(imports) do
     local names = {}
@@ -281,5 +292,6 @@ end
 return {
   { Math = expand },
   { Div = theorem },
+  { Div = output },
   { Pandoc = add_imports },
 }
