@@ -1,0 +1,29 @@
+\abs{#}
+\norm{#}
+\eval{#}_{0}^{1}
+\odv{#}{x}
+\odv{f}{x}
+\odv[2]{f}{x}
+\pdv{#}{x}
+\pdv{f}{x}
+\pdv[2]{f}{x}
+\pdv{f}{x,y}
+\pdv[2,1]{f}{x,y}
+g\odif{x}
+g\odif{x,y}
+g\odif[2]{x}
+\pdif{x}
+\vb{#}
+\vb*{#}
+\va{x}
+\va*{x}
+\vu{x}
+\vu*{x}
+\ab(#)
+\sin\ab(#)
+\Tr\ab(#)
+\ab[a[b]+\frac{a}{b}]
+\ab\{a\{b\}+\frac{a}{b}\}
+\ab|a+\frac{a}{b}|
+\ab\lVert #\rVert
+\ab\langle a\langle b\rangle+\frac{a}{b}\rangle

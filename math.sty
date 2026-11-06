@@ -27,8 +27,11 @@
 
 \makeatletter
 \newcommand\vb{\@ifstar\boldsymbol\bm}
-\newcommand\va[1]{\@ifstar{\vec{#1}}{\vec{\mathrm{#1}}}}
-\newcommand\vu[1]{ \@ifstar{\hat{\boldsymbol{#1}}}{\hat{\mathbf{#1}}}}
+\newcommand\va{\@ifstar\vec\va@upright}
+\newcommand\va@upright[1]{\vec{\mathrm{#1}}}
+\newcommand\vu{\@ifstar\vu@italic\vu@upright}
+\newcommand\vu@italic[1]{\hat{\boldsymbol{#1}}}
+\newcommand\vu@upright[1]{\hat{\mathbf{#1}}}
 \makeatother
 
 \usepackage{pgfplots}

@@ -1,297 +1,282 @@
--- Quarto filter for Typst output: expands the math.sty and stat.sty macros in
--- math, translates the package commands in `commands` to Typst, renders the
--- theorem environments, and drops leading blank lines from code cell output.
+-- Renders plang.sty with Typst packages. List it before target-typst.lua.
 
-local sty_files = { "../math.sty", "../stat.sty" }
-
-local builtins = {}
-for name in ([[arccos arcsin arctan arg cos cosh cot coth csc deg det dim exp gcd
-    hom inf ker lg lim liminf limsup ln log max min Pr sec sin sinh sup tan tanh]]):gmatch("%a+") do
-  builtins[name] = true
+if not quarto.doc.is_format("typst") then
+  return {}
 end
 
--- Commands translated directly to Typst. `args` lists the brace arguments, each
--- "math" (converted to Typst), "list" (comma-separated, each item converted and
--- passed as its own Typst argument) or "raw" (copied as is). In `typst`, %1, %2, ...
--- are the arguments and %o is ", <optional argument>" when `opt` is set and
--- the optional argument is given. `star` is the template for the starred form.
--- `import` names the Typst package and the function the template uses.
-local physica = "@preview/physica:0.9.8"
-local commands = {
-  textcolor = { args = { "raw", "math" }, typst = "text(fill: #%1, %2)" },
-  vb = { args = { "math" }, typst = "bold(%1)", star = "bold(%1)" },
-  va = { args = { "math" }, typst = "arrow(upright(%1))", star = "arrow(%1)" },
-  vu = { args = { "math" }, typst = "hat(upright(bold(%1)))", star = "hat(bold(%1))" },
-  abs = { args = { "math" }, typst = "abs(%1)" },
-  norm = { args = { "math" }, typst = "norm(%1)" },
-  eval = { args = { "math" }, typst = "evaluated(%1)", import = { physica, "evaluated" } },
-  odv = { opt = true, args = { "math", "math" }, typst = "dv(%1, %2%o)", import = { physica, "dv" } },
-  pdv = { opt = true, args = { "math", "list" }, typst = "pdv(%1, %2%o)", import = { physica, "pdv" } },
-  odif = { opt = true, args = { "list" }, typst = "dd(%1%o)", import = { physica, "dd" } },
-  pdif = { args = { "math" }, typst = "partial_(%1)" },
-  mathop = { args = { "math" }, typst = "op(%1, limits: #true)" },
-  operatorname = {
-    args = { "math" }, typst = "op(upright(%1))", star = "op(upright(%1), limits: #true)",
-  },
-  ["!"] = { args = {}, typst = "#h(-3em/18)" },
-}
+local imports = [[
+#import "@preview/curryst:0.6.0": rule, prooftree
+#import "@preview/simplebnf:0.2.0": bnf, Prod, Or
+]]
 
-local defs = {}
-local theorems = {}
-for _, file in ipairs(sty_files) do
-  local h = assert(io.open(quarto.utils.resolve_path(file)))
-  for line in h:lines() do
-    local star, op, body = line:match("^\\DeclareMathOperator(%*?){\\(%a+)}{(.*)}%s*$")
-    if op then
-      line = "\\newcommand{\\" .. op .. "}{\\operatorname" .. star .. "{" .. body .. "}}"
-    end
-    local provided = line:match("^\\providecommand{\\(%a+)}")
-    local defined = line:match("^\\%a*command%*?{?\\(%a+)")
-    if not (provided and builtins[provided]) and not commands[defined] then
-      defs[#defs + 1] = line
-    end
-    local opts, env = line:match("^\\declaretheorem%[(.-)%]{(%a+)}")
-    if env then
-      theorems[env] = opts:match("name=([^,]+)")
+local used = false
+
+local function raw(s)
+  return pandoc.RawInline("typst", s)
+end
+
+local function trim(s)
+  return s:match("^%s*(.-)%s*$")
+end
+
+local function text(s)
+  local inlines = pandoc.utils.blocks_to_inlines(pandoc.read(s, "latex").blocks)
+  return inlines:walk({
+    Span = function(span)
+      if span.classes:includes("sans-serif") then
+        return { raw('#text(font: "Latin Modern Sans")['), span, raw("]") }
+      end
+    end,
+  })
+end
+
+local function balanced(s, i, open, close)
+  local depth, j = 0, i
+  while j <= #s do
+    local c = s:sub(j, j)
+    if c == "\\" then
+      j = j + 2
+    else
+      if c == open then
+        depth = depth + 1
+      elseif c == close then
+        depth = depth - 1
+        if depth == 0 then
+          return s:sub(i + 1, j - 1), j + 1
+        end
+      end
+      j = j + 1
     end
   end
-  h:close()
+  error("unbalanced " .. open .. close .. " in: " .. s)
 end
-defs = table.concat(defs, "\n")
 
-local delimiters = {
-  ["("] = ")", ["["] = "]", ["\\{"] = "\\}", ["|"] = "|",
-  ["\\lVert"] = "\\rVert", ["\\langle"] = "\\rangle",
-}
+local function find_top(s, seps, start)
+  local depth, math, j = 0, false, start or 1
+  while j <= #s do
+    if depth == 0 and not math then
+      for _, sep in ipairs(seps) do
+        local after = s:sub(j + #sep, j + #sep)
+        if s:sub(j, j + #sep - 1) == sep and not (sep:match("%a$") and after:match("%a")) then
+          return j, sep
+        end
+      end
+    end
+    local c = s:sub(j, j)
+    if c == "\\" then
+      j = j + 2
+    else
+      if c == "{" then
+        depth = depth + 1
+      elseif c == "}" then
+        depth = depth - 1
+      elseif c == "$" then
+        math = not math
+      end
+      j = j + 1
+    end
+  end
+end
 
-local sized = { ["\\lVert"] = "\\Vert", ["\\rVert"] = "\\Vert" }
+local function split(s, seps)
+  local pieces, delims, start = {}, {}, 1
+  while true do
+    local i, sep = find_top(s, seps, start)
+    if not i then
+      break
+    end
+    pieces[#pieces + 1] = s:sub(start, i - 1)
+    delims[#delims + 1] = sep
+    start = i + #sep
+  end
+  pieces[#pieces + 1] = s:sub(start)
+  return pieces, delims
+end
 
-local function tokens(s)
-  local out, i = {}, 1
-  while i <= #s do
-    local tok = s:match("^\\%a+", i) or s:sub(i, s:sub(i, i) == "\\" and i + 1 or i)
-    out[#out + 1] = tok
-    i = i + #tok
+local function cut(s, sep)
+  local i = find_top(s, { sep })
+  if i then
+    return trim(s:sub(1, i - 1)), trim(s:sub(i + #sep))
+  end
+  return trim(s), nil
+end
+
+local function parse_rule(s, i)
+  local rule = {}
+  local star = s:sub(i, i) == "*"
+  if star then
+    i = i + 1
+  end
+  i = s:match("^%s*()", i)
+  if s:sub(i, i) == "[" then
+    local opts
+    opts, i = balanced(s, i, "[", "]")
+    if star then
+      for _, kv in ipairs(split(opts, { "," })) do
+        local k, v = kv:match("^%s*(%a+)%s*=%s*(.-)%s*$")
+        k = k and k:lower()
+        if k == "right" then
+          rule.name = v
+        elseif k == "left" or k == "lab" then
+          rule.label = v
+        end
+      end
+    else
+      rule.label = trim(opts)
+    end
+    i = s:match("^%s*()", i)
+  end
+  rule.premises, i = balanced(s, i, "{", "}")
+  i = s:match("^%s*()", i)
+  rule.conclusion, i = balanced(s, i, "{", "}")
+  return rule, i
+end
+
+local emit_formula
+
+local function emit_rule(rule, out)
+  out:insert(raw("rule("))
+  for _, key in ipairs({ "name", "label" }) do
+    if rule[key] then
+      out:insert(raw(key .. ": ["))
+      out:insert(pandoc.SmallCaps(text(rule[key])))
+      out:insert(raw("], "))
+    end
+  end
+  for _, premise in ipairs(split(rule.premises, { "\\\\", "\\and" })) do
+    if trim(premise) ~= "" then
+      emit_formula(premise, out)
+      out:insert(raw(", "))
+    end
+  end
+  emit_formula(rule.conclusion, out)
+  out:insert(raw(")"))
+end
+
+emit_formula = function(s, out)
+  s = trim(s)
+  local i = s:match("^\\inferrule()")
+  if i then
+    emit_rule((parse_rule(s, i)), out)
+  else
+    out:insert(pandoc.Math("InlineMath", s))
+  end
+end
+
+local function is_space(s)
+  return (s:gsub("\\q?quad", ""):gsub("\\[,;: ]", "")):match("^%s*$") ~= nil
+end
+
+local function derivations(el)
+  local s = el.text
+  if not s:find("\\inferrule", 1, true) then
+    return nil
+  end
+  used = true
+  local out = pandoc.Inlines({})
+  if el.mathtype == "DisplayMath" then
+    out:insert(raw("#align(center)["))
+  end
+  local i, first = 1, true
+  while true do
+    local j, after = s:find("\\inferrule", i, true)
+    local glue = s:sub(i, j and j - 1)
+    if not is_space(glue) then
+      out:insert(pandoc.Math("InlineMath", trim(glue)))
+    end
+    if not j then
+      break
+    end
+    if not first then
+      out:insert(raw("#h(2em)"))
+    end
+    first = false
+    local rule
+    rule, i = parse_rule(s, after + 1)
+    out:insert(raw("#box(prooftree("))
+    emit_rule(rule, out)
+    out:insert(raw("))"))
+  end
+  if el.mathtype == "DisplayMath" then
+    out:insert(raw("]"))
   end
   return out
 end
 
-local function skip_space(toks, i)
-  while toks[i] and toks[i]:match("^%s$") do
-    i = i + 1
+local function grammar(el)
+  if el.format ~= "tex" and el.format ~= "latex" then
+    return nil
   end
-  return i
-end
+  local body = el.text:match("^%s*\\begin{bnf}(.-)\\end{bnf}%s*$")
+  if not body then
+    return nil
+  end
+  used = true
+  body = trim(body)
+  if body:sub(1, 1) == "(" then
+    body = trim(body:sub(select(2, balanced(body, 1, "(", ")"))))
+  end
+  if body:sub(1, 1) == "[" then
+    body = trim(body:sub(select(2, balanced(body, 1, "[", "]"))))
+  end
 
-local function rewrite(toks, i, stop)
-  local out = {}
-  while i <= #toks do
-    local t = toks[i]
-    if stop and t == stop then
-      return table.concat(out), i
-    end
-    if t == "\\ab" then
-      local j = skip_space(toks, i + 1)
-      local open = toks[j]
-      local close = open and delimiters[open]
-      if close then
-        local inner, k = rewrite(toks, j + 1, close)
-        out[#out + 1] = "\\left" .. (sized[open] or open) .. " " .. inner
-          .. " \\right" .. (sized[close] or close)
-        i = k + 1
-      else
-        i = i + 1
+  local out = pandoc.Inlines({ raw("#bnf(") })
+  for _, production in ipairs(split(body, { ";;" })) do
+    local r = find_top(production, { "::=" })
+    if r then
+      local var, category = cut(production:sub(1, r - 1), "--")
+      out:insert(raw("Prod(["))
+      out:extend(text(var))
+      out:insert(raw("], "))
+      if category then
+        out:insert(raw("annot: ["))
+        out:extend(text(category))
+        out:insert(raw("], "))
       end
-    elseif t == "{" then
-      local inner, k = rewrite(toks, i + 1, "}")
-      out[#out + 1] = "{" .. inner .. "}"
-      i = k + 1
-    else
-      out[#out + 1] = t
-      i = i + 1
-    end
-  end
-  return table.concat(out), i
-end
-
--- Returns the text between toks[i] == open and its matching close, and the
--- index after the close.
-local function group(toks, i, open, close)
-  local depth, out = 0, {}
-  i = i + 1
-  while toks[i] and not (depth == 0 and toks[i] == close) do
-    if toks[i] == "{" then
-      depth = depth + 1
-    elseif toks[i] == "}" then
-      depth = depth - 1
-    end
-    out[#out + 1] = toks[i]
-    i = i + 1
-  end
-  return table.concat(out), i + 1
-end
-
-local function split_commas(latex)
-  local items, depth, start = {}, 0, 1
-  for i = 1, #latex do
-    local c = latex:sub(i, i)
-    if c == "{" then
-      depth = depth + 1
-    elseif c == "}" then
-      depth = depth - 1
-    elseif c == "," and depth == 0 then
-      items[#items + 1] = latex:sub(start, i - 1)
-      start = i + 1
-    end
-  end
-  items[#items + 1] = latex:sub(start)
-  return items
-end
-
-local imports = {}
-
-local to_typst
-
-local function convert_arg(kind, arg)
-  if kind == "math" then
-    return to_typst(arg)
-  elseif kind == "list" then
-    local items = split_commas(arg)
-    for n, item in ipairs(items) do
-      items[n] = to_typst(item)
-    end
-    return table.concat(items, ", ")
-  end
-  return arg
-end
-
-function to_typst(latex)
-  if latex:match("^%s*$") then
-    return ""
-  end
-  local toks = tokens(latex)
-  local pieces, out, i = {}, {}, 1
-  while i <= #toks do
-    local name = toks[i]:match("^\\(.+)$")
-    local spec = name and commands[name]
-    if spec then
-      i = i + 1
-      local template = spec.typst
-      if spec.star and toks[i] == "*" then
-        template = spec.star
-        i = i + 1
-      end
-      local opt
-      i = skip_space(toks, i)
-      if spec.opt and toks[i] == "[" then
-        opt, i = group(toks, i, "[", "]")
-      end
-      local args = {}
-      for n, kind in ipairs(spec.args) do
-        i = skip_space(toks, i)
-        local arg
-        if toks[i] == "{" then
-          arg, i = group(toks, i, "{", "}")
-        else
-          arg, i = toks[i] or "", i + 1
+      local lines = {}
+      local alternatives, delims = split(production:sub(r + 3), { "|", "//" })
+      for k, alternative in ipairs(alternatives) do
+        if trim(alternative) ~= "" then
+          if #lines == 0 or delims[k - 1] ~= "//" then
+            lines[#lines + 1] = { forms = {} }
+          end
+          local line = lines[#lines]
+          local form, comment = cut(alternative, "--")
+          line.forms[#line.forms + 1] = form
+          line.comment = comment or line.comment
         end
-        args[n] = convert_arg(kind, arg)
       end
-      pieces[#pieces + 1] = template:gsub("%%(%w)", function(k)
-        if k == "o" then
-          return opt and ", " .. to_typst(opt) or ""
+
+      out:insert(raw("{ "))
+      for _, line in ipairs(lines) do
+        out:insert(raw("Or["))
+        for f, form in ipairs(line.forms) do
+          if f > 1 then
+            out:insert(raw(" $|$ "))
+          end
+          out:extend(text(form))
         end
-        return args[tonumber(k)]
-      end)
-      out[#out + 1] = "\\mathrm{QQ" .. #pieces .. "QQ}"
-      if spec.import then
-        local pkg, fn = table.unpack(spec.import)
-        imports[pkg] = imports[pkg] or {}
-        imports[pkg][fn] = true
+        out:insert(raw("]["))
+        if line.comment then
+          out:extend(text(line.comment))
+        end
+        out:insert(raw("]; "))
       end
-    else
-      out[#out + 1] = toks[i]
-      i = i + 1
+      out:insert(raw("}), "))
     end
   end
-  local elem = pandoc.Math("InlineMath", table.concat(out))
-  local typst = pandoc.write(pandoc.Pandoc({ pandoc.Plain({ elem }) }), "typst")
-  typst = typst:match("^%$(.*)%$%s*$")
-  return (typst:gsub("upright%(Q Q (%d+) Q Q%)", function(n)
-    return pieces[tonumber(n)]
-  end))
-end
-
-local function uses_commands(latex)
-  for _, tok in ipairs(tokens(latex)) do
-    local name = tok:match("^\\(.+)$")
-    if name and commands[name] then
-      return true
-    end
-  end
-  return false
-end
-
-local function expand(el)
-  local delim = el.mathtype == "DisplayMath" and "$$" or "$"
-  local doc = pandoc.read(defs .. "\n\n" .. delim .. el.text .. delim, "markdown")
-  doc:walk({ Math = function(m) el.text = m.text end })
-  el.text = (rewrite(tokens(el.text), 1))
-  if not uses_commands(el.text) then
-    return el
-  end
-  local typst = to_typst(el.text)
-  if el.mathtype == "DisplayMath" then
-    return pandoc.RawInline("typst", "$ " .. typst .. " $")
-  end
-  return pandoc.RawInline("typst", "$" .. typst .. "$")
-end
-
-local function theorem(div)
-  for _, class in ipairs(div.classes) do
-    local name = theorems[class]
-    if name then
-      local title = div.attributes.title
-      local head = pandoc.Strong(name .. (title and " (" .. title .. ")" or "") .. ":")
-      local first = div.content[1]
-      if first and (first.t == "Para" or first.t == "Plain") then
-        first.content:insert(1, pandoc.Space())
-        first.content:insert(1, head)
-      else
-        div.content:insert(1, pandoc.Para({ head }))
-      end
-      return div.content
-    end
-  end
-end
-
-local function output(div)
-  if div.classes:includes("cell-output") then
-    return div:walk({
-      CodeBlock = function(block)
-        block.text = block.text:gsub("^%s*\n", "")
-        return block
-      end,
-    })
-  end
-end
-
-local function add_imports(doc)
-  for pkg, fns in pairs(imports) do
-    local names = {}
-    for fn in pairs(fns) do
-      names[#names + 1] = fn
-    end
-    table.sort(names)
-    doc.blocks:insert(1, pandoc.RawBlock("typst",
-      '#import "' .. pkg .. '": ' .. table.concat(names, ", ")))
-  end
-  return doc
+  out:insert(raw(")"))
+  return pandoc.Plain(out)
 end
 
 return {
-  { Math = expand },
-  { Div = theorem },
-  { Div = output },
-  { Pandoc = add_imports },
+  { Math = derivations, RawBlock = grammar },
+  {
+    Pandoc = function(doc)
+      if used then
+        doc.blocks:insert(1, pandoc.RawBlock("typst", imports))
+      end
+      return doc
+    end,
+  },
 }

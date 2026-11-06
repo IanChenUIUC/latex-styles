@@ -1,0 +1,27 @@
+---
+title: "Fixture"
+format:
+  html: default
+  typst: default
+filters:
+  - sty/quarto/html-adapter.lua
+  - sty/quarto/target-mathjax.lua
+  - sty/quarto/typst-adapter.lua
+  - sty/quarto/target-typst.lua
+---
+
+Inline $\R + \abs{\frac{a}{b}}$ and display:
+
+$$
+\Ev\ab[X] = \odv{f}{x} \qquad \eval{x}_{0}^{1}
+$$
+
+::: {.thrm title="Name"}
+Body with $\N$.
+:::
+
+$$\inferrule{\Gamma \vdash a}{\Gamma \vdash \R}$$
+
+\begin{bnf}
+  $x$ : Var ::= a | b
+\end{bnf}

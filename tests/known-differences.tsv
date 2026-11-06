@@ -1,0 +1,3 @@
+form	\begin{cases} a & b \\ c & d \end{cases}	typst	Typst sets columns closer together.
+form	\begin{bmatrix} a & b \\ c & d \end{bmatrix}	typst	Typst sets columns closer together.
+delimiter	\left\vert # \right.	typst	Pandoc does not stretch a bar with no closing delimiter; no document uses it.

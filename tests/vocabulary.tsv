@@ -1,0 +1,138 @@
+atom	\to
+atom	\vdash
+atom	\le
+atom	\times
+atom	\cdot
+atom	\mid
+atom	\ge
+atom	\in
+atom	\sim
+atom	\approx
+atom	\oplus
+atom	\circ
+atom	\perp
+atom	\ne
+atom	\equiv
+atom	\land
+atom	\rightsquigarrow
+atom	\mapsto
+atom	\implies
+atom	\geq
+atom	\cup
+atom	\rightarrow
+atom	\leftarrow
+atom	\setminus
+atom	\leq
+atom	\parallel
+atom	\forall
+atom	\ell
+atom	\infty
+atom	\emptyset
+atom	\partial
+atom	\nabla
+atom	\ldots
+atom	\dots
+atom	\cdots
+atom	\vdots
+atom	\backslash
+atom	\alpha
+atom	\beta
+atom	\gamma
+atom	\delta
+atom	\epsilon
+atom	\varepsilon
+atom	\theta
+atom	\lambda
+atom	\mu
+atom	\pi
+atom	\rho
+atom	\sigma
+atom	\tau
+atom	\omega
+atom	\varphi
+atom	\Gamma
+atom	\Sigma
+atom	\Phi
+atom	\Theta
+atom	\sin
+atom	\log
+atom	\ln
+atom	\min
+atom	\max
+atom	\lim
+atom	\coth
+atom	\tanh
+atom	\sinh
+atom	\cosh
+atom	\sum
+atom	\prod
+atom	\int
+atom	\operatorname{foo}
+atom	\mathop{\mathbf{E}}
+space	\,
+space	\!
+space	\ 
+space	\quad
+space	\qquad
+space	\mathop{}\!
+limit	\sum
+limit	\prod
+limit	\int
+limit	\min
+limit	\max
+limit	\lim
+limit	\log
+limit	\operatorname{foo}
+limit	\operatorname*{foo}
+limit	\mathop{\mathbf{E}}
+delimiter	\left( # \right)
+delimiter	\left[ # \right]
+delimiter	\left\{ # \right\}
+delimiter	\left\vert # \right\vert
+delimiter	\left\Vert # \right\Vert
+delimiter	\left\langle # \right\rangle
+delimiter	\left\lfloor # \right\rfloor
+delimiter	\left\lceil # \right\rceil
+delimiter	\left. # \right\vert
+delimiter	\left. # \right|
+delimiter	\left\vert # \right.
+style	f
+style	\mathrm{f}
+style	\mathbf{f}
+style	\boldsymbol{f}
+style	\operatorname{f}
+style	\text{f}
+style	\textsf{f}
+style	\texttt{f}
+style	\textbf{f}
+form	\frac{a}{b}
+form	\dfrac{a}{b}
+form	\binom{n}{k}
+form	\sqrt{x}
+form	\hat{x}
+form	\tilde{x}
+form	\bar{x}
+form	\vec{x}
+form	\overset{a}{\sim}
+form	\not=
+form	\mathcal{F}
+form	\mathbb{F}
+form	\textcolor{red}{x}
+form	\%
+form	\#
+form	\mathopen{}x
+form	\mathclose{x}
+form	\lfloor x\rfloor
+form	\lceil x\rceil
+form	\llbracket x\rrbracket
+form	\langle x\rangle
+form	\vert x\vert
+form	\Vert x\Vert
+form	\lVert x\rVert
+form	a\!b\!c\!d\!e\!f\!g\!h\!i\!j\!k\!l
+form	\begin{aligned} a &= b \\ c &= d \end{aligned}
+form	\begin{cases} a & b \\ c & d \end{cases}
+form	\begin{bmatrix} a & b \\ c & d \end{bmatrix}
+check	\begin{align} a &= b \\ c &= d \end{align}
+check	\begin{align*} a &= b \\ c &= d \end{align*}
+layout	\inferrule

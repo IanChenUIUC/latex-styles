@@ -1,0 +1,375 @@
+#!/usr/bin/env python3
+"""Tests sty/quarto and the .sty files. Documents given as arguments must use only allowed commands."""
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+TESTS = Path(__file__).resolve().parent
+STY = TESTS.parent
+ARGUMENT = r"f(x)+\frac{a}{b}"
+TALL = r"x^{x^{x^{x}}}"
+
+# TeX's spacing between atoms, in em, for a and b around a symbol of each class.
+GAPS = {"none": 0, "thin": 3 / 18, "op": 6 / 18, "bin": 8 / 18, "rel": 10 / 18}
+BELOW = 0.4  # height a subscript adds when set as a limit
+STRETCHED = 0.35  # height a delimiter adds around a body that sits above the axis
+SPACE_TOLERANCE = 0.05
+STYLE_TOLERANCE = 0.055
+FORM_TOLERANCE = 0.25
+SAME = 0.005
+
+failures = []
+
+
+def fail(message):
+    failures.append(message)
+
+
+def run(command, **options):
+    return subprocess.run(command, capture_output=True, text=True, **options)
+
+
+def tex_env():
+    return {**os.environ, "TEXINPUTS": f"{STY}//:", "max_print_line": "10000"}
+
+
+def lua(script, *args, env=None):
+    result = run(["quarto", "pandoc", "lua", str(TESTS / script), *map(str, args)], env=env)
+    return result.returncode, result.stdout, result.stderr
+
+
+def tokens(latex):
+    commands = set(re.findall(r"\\[a-zA-Z]+|\\[^a-zA-Z]", latex)) - {r"\begin", r"\end"}
+    return commands | set(re.findall(r"\\begin\{[^}]*\}", latex))
+
+
+def read_vocabulary():
+    rows = [line.rstrip("\n").split("\t") for line in open(TESTS / "vocabulary.tsv")]
+    return [(group, probe) for group, probe in rows]
+
+
+def read_known():
+    known = {}
+    for line in open(TESTS / "known-differences.tsv"):
+        group, probe, engine, reason = line.rstrip("\n").split("\t")
+        known[group, probe, engine] = reason
+    return known
+
+
+def defined_commands(build):
+    """Names the .sty files define or redefine, as TeX sees them."""
+    lines = []
+    for sty in ["math.sty", "stat.sty"]:
+        lines += [line for line in open(STY / sty) if re.match(r"\\(use|pgfplotsset)", line)]
+    tex = [
+        r"\documentclass{article}",
+        *[line.rstrip() for line in lines],
+        r"\directlua{before = {}",
+        r"for _, n in ipairs(tex.hashtokens()) do before[n] = token.get_meaning(n) end}",
+        r"\usepackage{math}",
+        r"\usepackage{stat}",
+        r"\directlua{local f = io.open('defined.txt', 'w')",
+        r"for _, n in ipairs(tex.hashtokens()) do",
+        r"if token.is_defined(n) and token.get_meaning(n) \string~= before[n] then f:write(n, '\string\n') end",
+        r"end f:close()}",
+        r"\begin{document}x\end{document}",
+    ]
+    (build / "defs.tex").write_text("\n".join(tex) + "\n")
+    result = run(["lualatex", "-interaction=batchmode", "-halt-on-error", "defs.tex"], cwd=build, env=tex_env())
+    if result.returncode:
+        fail("lualatex could not list the definitions")
+        return []
+    source = (STY / "math.sty").read_text() + (STY / "stat.sty").read_text()
+    names = (build / "defined.txt").read_text().split("\n")
+    return sorted(n for n in set(names) if re.fullmatch(r"[a-zA-Z]+", n) and re.search(rf"\\{n}(?![a-zA-Z])", source))
+
+
+def macro_forms(defined):
+    """One form per defined command, with # for each argument, and a limit form for operators."""
+    arity = {}
+    operators = set()
+    for sty in ["math.sty", "stat.sty"]:
+        text = (STY / sty).read_text()
+        arity.update((name, int(n)) for name, n in re.findall(r"^\\newcommand\{?\\(\w+)\}?\[(\d)\]", text, re.M))
+        operators |= set(re.findall(r"^\\DeclareMathOperator\*?\{\\(\w+)\}", text, re.M))
+    forms = []
+    for name in defined:
+        forms.append(f"\\{name}" + "{#}" * arity.get(name, 0) + (" x" if not arity.get(name) else ""))
+        if name in operators:
+            forms.append(f"\\{name}_{{n}} x")
+    return forms
+
+
+def lower(formulas, build):
+    (build / "in.json").write_text(json.dumps(formulas))
+    code, _, stderr = lua("lower.lua", build / "in.json", build / "out.json")
+    if code or stderr.strip():
+        fail(f"filters: {stderr.strip()[:2000]}")
+    if code:
+        return None
+    return json.loads((build / "out.json").read_text())
+
+
+def measure_tex(formulas, build):
+    probes = "".join(f"\\probe{{{i}}}{{{latex}}}\n" for i, latex in enumerate(formulas))
+    (build / "measure.tex").write_text(
+        "\\documentclass[10pt]{article}\n\\usepackage{math}\n\\usepackage{stat}\n\\newbox\\pb\n"
+        "\\newcommand\\probe[2]{\\setbox\\pb=\\hbox{$\\displaystyle #2$}"
+        "\\typeout{PROBE #1 \\the\\wd\\pb\\space\\the\\ht\\pb\\space\\the\\dp\\pb}}\n"
+        "\\begin{document}\n" + probes + "\\end{document}\n"
+    )
+    run(["pdflatex", "-interaction=nonstopmode", "measure.tex"], cwd=build, env=tex_env())
+    sizes, pending = {}, None
+    for line in (build / "measure.log").read_text(errors="replace").splitlines():
+        if line.startswith("! "):
+            pending = line
+        match = re.match(r"PROBE (\d+) ([\d.]+)pt ([\d.]+)pt ([\d.]+)pt", line)
+        if match:
+            i = int(match[1])
+            w, h, d = (float(match[n]) / 10 for n in (2, 3, 4))
+            sizes[i] = (w, h + d)
+            if pending:
+                fail(f"pdflatex: {pending} in {formulas[i]}")
+                pending = None
+    return sizes
+
+
+def measure_mathjax(formulas, build):
+    (build / "mathjax-in.json").write_text(json.dumps(formulas))
+    result = run(["node", str(TESTS / "mathjax.cjs"), str(build / "mathjax-in.json"), str(build / "mathjax-out.json")])
+    if result.returncode:
+        fail(f"mathjax: {result.stderr[:2000]}")
+        return {}
+    sizes = {}
+    for i, item in enumerate(json.loads((build / "mathjax-out.json").read_text())):
+        if item["error"]:
+            fail(f"mathjax: error in {formulas[i]}")
+        sizes[i] = (item["w"], item["h"])
+    return sizes
+
+
+def measure_typst(formulas, build):
+    pending = dict(enumerate(formulas))
+    while True:
+        lines = [
+            "#set text(size: 10pt)",
+            "#set page(width: auto, height: auto)",
+            "#let probe(i, body) = context { let s = measure(body); "
+            "[#metadata((i: i, w: s.width / 1pt, h: s.height / 1pt)) <m>] }",
+        ]
+        owners = {}
+        for i, source in pending.items():
+            start = len(lines) + 1
+            lines.append(f"#probe({i}, {source})")
+            for n in range(start, start + lines[-1].count("\n") + 1):
+                owners[n] = i
+            lines[-1:] = lines[-1].split("\n")
+        (build / "measure.typ").write_text("\n".join(lines) + "\n")
+        result = run(
+            ["quarto", "typst", "eval", "query(<m>).map(it => it.value)", "--in", "measure.typ", "--root", "."],
+            cwd=build,
+        )
+        if result.returncode == 0:
+            break
+        located = re.search(r"measure\.typ:(\d+):", result.stderr)
+        if not located or int(located[1]) not in owners:
+            fail(f"typst: {result.stderr[:2000]}")
+            return {}
+        i = owners[int(located[1])]
+        fail(f"typst: error in {formulas[i]}")
+        del pending[i]
+    output = result.stdout + result.stderr  # quarto typst prints the result on stderr
+    items, _ = json.JSONDecoder().raw_decode(output, output.index("[{"))
+    return {item["i"]: (item["w"] / 10, item["h"] / 10) for item in items}
+
+
+def unit_tests(vocabulary, forms, defined, build):
+    probes = [probe for group, probe in vocabulary if group not in ("layout", "delimiter")]
+    (build / "unit.json").write_text(
+        json.dumps({"probes": probes, "forms": forms, "defined": defined, "argument": ARGUMENT})
+    )
+    env = {**os.environ, "XDG_CACHE_HOME": str(build / "cache")}
+    code, stdout, stderr = lua("unit.lua", build / "unit.json", env=env)
+    for line in stdout.splitlines():
+        fail(line.removeprefix("FAIL "))
+    if code and not stdout:
+        fail(f"unit tests: {stderr[:2000]}")
+
+
+def lowering_tests(vocabulary, forms, build):
+    sources = [form.replace("#", ARGUMENT) for form in forms]
+    lowered = lower(sources, build)
+    if lowered is None:
+        return
+    allowed = set()
+    for _, probe in vocabulary:
+        allowed |= tokens(probe)
+    for source, item in zip(sources, lowered):
+        for token in sorted(tokens(item["frontend"]) - allowed):
+            fail(f"{token} from {source} is not allowed")
+    both = sources + [item["frontend"] for item in lowered]
+    sizes = measure_tex(both, build)
+    for i, source in enumerate(sources):
+        original, result = sizes.get(i), sizes.get(i + len(sources))
+        if not original or not result:
+            fail(f"lowering: could not measure {source}")
+        elif max(abs(a - b) for a, b in zip(original, result)) > SAME:
+            fail(f"lowering changes {source}: {original} became {result}")
+
+
+def target_tests(vocabulary, build):
+    items = ["a", "b", "a b", TALL]
+    for group, probe in vocabulary:
+        if group == "atom":
+            items += [f"{{{probe}}}", f"a {probe} b"]
+        elif group == "space":
+            items.append(f"a {probe} b")
+        elif group == "limit":
+            items += [probe, f"{probe}_{{n}}"]
+        elif group == "delimiter":
+            items.append(probe.replace("#", TALL))
+        elif group in ("style", "form", "check"):
+            items.append(probe)
+    items = list(dict.fromkeys(items))
+    index = {latex: i for i, latex in enumerate(items)}
+
+    lowered = lower(items, build)
+    if lowered is None:
+        return
+    for latex, item in zip(items, lowered):
+        if "Q Q" in item["typst"] or "QQ" in item["typst"]:
+            fail(f"typst: placeholder left in {latex}")
+
+    measured = [i for i, latex in enumerate(items) if ("check", latex) not in vocabulary]
+    tex = {measured[n]: size for n, size in measure_tex([items[i] for i in measured], build).items()}
+    engines = {
+        "mathjax": measure_mathjax([item["mathjax"] for item in lowered], build),
+        "typst": measure_typst([item["typst"] for item in lowered], build),
+    }
+
+    known = read_known()
+    compared = set()
+
+    def compare(group, probe, engine, got, want):
+        key = (group, probe, engine)
+        compared.add(key)
+        if got == want and key in known:
+            fail(f"known difference no longer differs: {group} {probe} in {engine}")
+        elif got != want and key not in known:
+            fail(f"{engine}: {group} {probe}: {got}, pdflatex {want}")
+
+    def gap_class(sizes, probe):
+        alone = sizes[index[f"{{{probe}}}"]][0]
+        gap = sizes[index[f"a {probe} b"]][0] - alone - sizes[index["a"]][0] - sizes[index["b"]][0]
+        return min(GAPS, key=lambda name: abs(GAPS[name] - gap))
+
+    def placement(sizes, probe):
+        return "below" if sizes[index[f"{probe}_{{n}}"]][1] - sizes[index[probe]][1] >= BELOW else "beside"
+
+    def stretch(sizes, probe):
+        added = sizes[index[probe.replace("#", TALL)]][1] - sizes[index[TALL]][1]
+        return "stretched" if added >= STRETCHED else "not stretched"
+
+    def within(sizes, probe, tolerance):
+        difference = sizes[index[probe]][0] - tex[index[probe]][0]
+        return "same" if abs(difference) < tolerance else f"{difference:+.2f}em wide"
+
+    def space(sizes, probe):
+        return sizes[index[f"a {probe} b"]][0] - sizes[index["a b"]][0]
+
+    for engine, sizes in engines.items():
+        for group, probe in vocabulary:
+            needed = {
+                "atom": ["a", "b", f"{{{probe}}}", f"a {probe} b"],
+                "space": ["a b", f"a {probe} b"],
+                "limit": [probe, f"{probe}_{{n}}"],
+                "delimiter": [TALL, probe.replace("#", TALL)],
+                "style": [probe],
+                "form": [probe],
+            }.get(group, [])
+            if not all(index[latex] in sizes and index[latex] in tex for latex in needed):
+                continue
+            if group == "atom":
+                compare(group, probe, engine, gap_class(sizes, probe), gap_class(tex, probe))
+            elif group == "space":
+                difference = space(sizes, probe) - space(tex, probe)
+                got = "same" if abs(difference) < SPACE_TOLERANCE else f"{difference:+.2f}em"
+                compare(group, probe, engine, got, "same")
+            elif group == "limit":
+                compare(group, probe, engine, placement(sizes, probe), placement(tex, probe))
+            elif group == "delimiter":
+                compare(group, probe, engine, stretch(sizes, probe), stretch(tex, probe))
+            elif group == "style":
+                compare(group, probe, engine, within(sizes, probe, STYLE_TOLERANCE), "same")
+            elif group == "form":
+                compare(group, probe, engine, within(sizes, probe, FORM_TOLERANCE), "same")
+    for key in known.keys() - compared:
+        fail(f"known difference not tested: {key}")
+
+
+def end_to_end(build):
+    site = build / "fixture"
+    site.mkdir()
+    (site / "sty").symlink_to(STY)
+    shutil.copy(TESTS / "fixture.qmd", site)
+    for target, output in [("html", "fixture.html"), ("typst", "fixture.pdf")]:
+        result = run(["quarto", "render", "fixture.qmd", "--to", target], cwd=site)
+        log = result.stdout + result.stderr
+        if result.returncode or "WARN" in log or not (site / output).exists():
+            fail(f"fixture to {target}: {log[-2000:]}")
+    html = (site / "fixture.html").read_text() if (site / "fixture.html").exists() else ""
+    math = " ".join(re.findall(r'<span class="math[^>]*>(.*?)</span>', html, re.S))
+    for wanted, where, name in [
+        (r"\mathcal{R}", math, "macros expand in HTML"),
+        ("<svg", html, "layout constructs become SVG"),
+        ("Theorem (Name):", html.replace("<strong>", "").replace("</strong>", ""), "theorems render"),
+    ]:
+        if wanted not in where:
+            fail(f"fixture: {name}")
+    if r"\inferrule" in math:
+        fail("fixture: \\inferrule reached MathJax")
+
+
+def check_documents(paths, vocabulary, build):
+    allowed = set()
+    for _, probe in vocabulary:
+        allowed |= tokens(probe)
+    (build / "docs.json").write_text(json.dumps([str(Path(p).resolve()) for p in paths]))
+    code, _, stderr = lua("formulas.lua", build / "docs.json", build / "formulas.json")
+    if code:
+        fail(f"documents: {stderr[:2000]}")
+        return
+    for path, formulas in json.loads((build / "formulas.json").read_text()).items():
+        for token in sorted(set().union(*map(tokens, formulas), set()) - allowed):
+            fail(f"{path}: {token} is not allowed")
+
+
+def main():
+    if not (TESTS / "node_modules").exists():
+        result = run(["npm", "install", "--ignore-scripts", "--no-audit", "--no-fund"], cwd=TESTS)
+        if result.returncode:
+            sys.exit(f"npm install failed:\n{result.stderr}")
+    vocabulary = read_vocabulary()
+    with tempfile.TemporaryDirectory() as directory:
+        build = Path(directory)
+        defined = defined_commands(build)
+        forms = open(TESTS / "lowering.txt").read().splitlines() + macro_forms(defined)
+        unit_tests(vocabulary, forms, defined, build)
+        lowering_tests(vocabulary, forms, build)
+        target_tests(vocabulary, build)
+        end_to_end(build)
+        check_documents(sys.argv[1:], vocabulary, build)
+    for message in failures:
+        print(f"FAIL {message}")
+    print(f"{len(failures)} failures")
+    sys.exit(1 if failures else 0)
+
+
+if __name__ == "__main__":
+    main()
