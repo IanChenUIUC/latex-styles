@@ -1,4 +1,5 @@
--- Renders plang.sty with Typst packages. List it before target-typst.lua.
+-- Renders plang.sty with Typst packages, and other raw LaTeX blocks with pandoc's LaTeX reader.
+-- List it before target-typst.lua.
 
 if not quarto.doc.is_format("typst") then
   return {}
@@ -269,6 +270,17 @@ local function grammar(el)
   return pandoc.Plain(out)
 end
 
+local function latex_block(el)
+  if el.format ~= "latex" and el.format ~= "tex" then
+    return nil
+  end
+  local blocks = pandoc.read(el.text, "latex").blocks
+  if #blocks == 0 then
+    quarto.log.warning("raw LaTeX dropped: " .. el.text:sub(1, 60))
+  end
+  return blocks
+end
+
 return {
   { Math = derivations, RawBlock = grammar },
   {
@@ -279,4 +291,5 @@ return {
       return doc
     end,
   },
+  { RawBlock = latex_block },
 }

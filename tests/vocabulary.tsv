@@ -130,6 +130,7 @@ form	\vert x\vert
 form	\Vert x\Vert
 form	\lVert x\rVert
 form	a\!b\!c\!d\!e\!f\!g\!h\!i\!j\!k\!l
+form	\perp\!\!\!\perp
 form	\begin{aligned} a &= b \\ c &= d \end{aligned}
 form	\begin{cases} a & b \\ c & d \end{cases}
 form	\begin{bmatrix} a & b \\ c & d \end{bmatrix}

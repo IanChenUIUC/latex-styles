@@ -25,3 +25,9 @@ $$\inferrule{\Gamma \vdash a}{\Gamma \vdash \R}$$
 \begin{bnf}
   $x$ : Var ::= a | b
 \end{bnf}
+
+\begin{tabular}{|c|c|}
+\hline
+$\R$ & b \\
+\hline
+\end{tabular}

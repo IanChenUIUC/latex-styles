@@ -165,10 +165,41 @@ local function typst_layout()
   equal(doc.blocks[1].t, "Para", "no imports when unused")
 end
 
+local function kern_runs()
+  local expand = harness.filter("target-typst.lua", "typst")[1].Math
+  local typst = expand(pandoc.Math("InlineMath", "a \\perp\\! \\!\\!\\perp b")).text
+  equal(select(2, typst:gsub("#h%(", "")), 1, "a run of \\! is one kern")
+  check(typst:find("#h(-9em/18)", 1, true), "a run of \\! adds up", typst)
+end
+
+local function raw_latex()
+  local convert = harness.filter("typst-adapter.lua", "typst")[3].RawBlock
+  local function blocks(latex)
+    return pandoc.Blocks(convert(pandoc.RawBlock("latex", latex)))
+  end
+
+  local inner = "\\begin{tabular}{|c|c|}\n\\hline\n$\\R$ & b \\\\\n\\hline\n\\end{tabular}"
+  for _, latex in ipairs({
+    inner,
+    "\\begin{center}\n" .. inner .. "\n\\end{center}",
+    "\\begin{table}\n" .. inner .. "\n\\end{table}",
+    "\\begin{tabular*}{\\textwidth}{|c|c|}\n\\hline\na & b \\\\\n\\hline\n\\end{tabular*}",
+  }) do
+    equal(count(pandoc.Pandoc(blocks(latex)), "Table"), 1, "a tabular becomes a table: " .. latex:sub(1, 20))
+  end
+
+  local math = {}
+  blocks(inner):walk({ Math = function(m) math[#math + 1] = m.text end })
+  equal(math[1], "\\R", "math in a cell stays math")
+
+  equal(convert(pandoc.RawBlock("html", "<hr>")), nil, "other formats pass through")
+  check(not pcall(blocks, "\\newpage"), "dropped raw LaTeX warns", "no warning")
+end
+
 for _, test in ipairs({
   tokens_round_trip, argument_parsing, allowed_commands_pass_through, every_defined_command_expands,
   expansion_composes, stays_balanced, every_rule_has_a_form, theorems, code_output, html_layout, svg_cache,
-  typst_layout,
+  typst_layout, kern_runs, raw_latex,
 }) do
   local ok, message = pcall(test)
   check(ok, "error", message)

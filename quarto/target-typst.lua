@@ -97,6 +97,16 @@ local function to_typst(latex)
         end
       end
       local template = starred and spec.star or spec.typst
+      -- Inline Typst math applies only one of several #h calls after a relation, so a run of \! is
+      -- one kern.
+      if spec == fixups["!"] then
+        local kern = 3
+        while toks[i] == "\\!" do
+          kern = kern + 3
+          _, _, _, i = frontend.arguments(toks, i, spec)
+        end
+        template = "#h(-" .. kern .. "em/18)"
+      end
       pieces[#pieces + 1] = template:gsub("%%(%d)", function(k) return args[tonumber(k)] end)
       out[#out + 1] = "\\mathrm{QQ" .. #pieces .. "QQ}"
     else
