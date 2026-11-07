@@ -97,8 +97,7 @@ local function to_typst(latex)
         end
       end
       local template = starred and spec.star or spec.typst
-      -- Inline Typst math applies only one of several #h calls after a relation, so a run of \! is
-      -- one kern.
+      -- Inline Typst math applies one #h of a run after a relation.
       if spec == fixups["!"] then
         local kern = 3
         while toks[i] == "\\!" do

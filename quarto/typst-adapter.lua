@@ -1,9 +1,10 @@
--- Renders plang.sty with Typst packages, and other raw LaTeX blocks with pandoc's LaTeX reader.
--- List it before target-typst.lua.
+-- Renders plang.sty and raw LaTeX for Typst. List it before target-typst.lua.
 
 if not quarto.doc.is_format("typst") then
   return {}
 end
+
+local latex_svg = require("latex-svg")
 
 local imports = [[
 #import "@preview/curryst:0.6.0": rule, prooftree
@@ -281,8 +282,56 @@ local function latex_block(el)
   return blocks
 end
 
+local function latex_inline(el)
+  if el.format ~= "latex" and el.format ~= "tex" then
+    return nil
+  end
+  local inlines = pandoc.utils.blocks_to_inlines(pandoc.read(el.text, "latex").blocks)
+  if #inlines == 0 then
+    quarto.log.warning("raw LaTeX dropped: " .. el.text:sub(1, 60))
+  end
+  return inlines
+end
+
+-- Quarto drops the caption of a table with no label.
+local function table_caption(tbl)
+  local caption = pandoc.utils.blocks_to_inlines(tbl.caption.long)
+  if #caption == 0 then
+    return nil
+  end
+  tbl.caption.long = {}
+  return {
+    pandoc.RawBlock("typst",
+      '#figure(kind: "quarto-float-tbl", supplement: "Table", caption: figure.caption(position: top, ['),
+    pandoc.Plain(caption),
+    pandoc.RawBlock("typst", "]))["),
+    tbl,
+    pandoc.RawBlock("typst", "]"),
+  }
+end
+
+-- LaTeX typesets the SVG at 10pt.
+local function exact_latex(div)
+  if not div.classes:includes("latex-svg") then
+    return nil
+  end
+  local el = div.content[1]
+  if #div.content ~= 1 or el.t ~= "RawBlock" then
+    quarto.log.warning("latex-svg: expected one raw LaTeX block")
+    return nil
+  end
+  local items, message = latex_svg.render({ el.text })
+  if not items then
+    quarto.log.warning("latex-svg: " .. message)
+    return nil
+  end
+  local svg = items[1].svg:gsub('[\\"]', "\\%0")
+  return pandoc.RawBlock("typst",
+    '#context scale(text.size / 10pt * 100%, reflow: true, image(bytes("' .. svg .. '"), format: "svg"))')
+end
+
 return {
-  { Math = derivations, RawBlock = grammar },
+  { Math = derivations, RawBlock = grammar, Div = exact_latex },
   {
     Pandoc = function(doc)
       if used then
@@ -291,5 +340,6 @@ return {
       return doc
     end,
   },
-  { RawBlock = latex_block },
+  { RawBlock = latex_block, RawInline = latex_inline },
+  { Table = table_caption },
 }

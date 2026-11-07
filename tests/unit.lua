@@ -194,12 +194,49 @@ local function raw_latex()
 
   equal(convert(pandoc.RawBlock("html", "<hr>")), nil, "other formats pass through")
   check(not pcall(blocks, "\\newpage"), "dropped raw LaTeX warns", "no warning")
+
+  local inline = harness.filter("typst-adapter.lua", "typst")[3].RawInline
+  local bold = pandoc.Inlines(inline(pandoc.RawInline("tex", "\\textbf{$\\R$}")))
+  equal(bold[1].t, "Strong", "inline LaTeX converts")
+  equal(bold[1].content[1].text, "\\R", "math in inline LaTeX stays math")
+  equal(inline(pandoc.RawInline("typst", "#h(1em)")), nil, "other inline formats pass through")
+  check(not pcall(inline, pandoc.RawInline("tex", "\\hfill ")), "dropped inline LaTeX warns", "no warning")
+end
+
+local function table_captions()
+  local caption = harness.filter("typst-adapter.lua", "typst")[4].Table
+  local function tbl(latex)
+    return pandoc.read(latex, "latex").blocks[1]
+  end
+
+  local out = pandoc.Blocks(caption(tbl("\\begin{table}\n\\begin{tabular}{c}\na\n\\end{tabular}\n\\caption{$\\R$}\n\\end{table}")))
+  check(out[1].text:find("quarto-float-tbl", 1, true), "a caption shares Quarto's table counter", out[1].text)
+  check(out[1].text:find("position: top", 1, true), "a caption sits above the table", out[1].text)
+  equal(out[2].content[1].text, "\\R", "math in a caption stays math")
+  equal(#out[4].caption.long, 0, "the table keeps no caption of its own")
+  equal(caption(tbl("\\begin{tabular}{c}\na\n\\end{tabular}")), nil, "a table with no caption stays")
+end
+
+local function exact_latex()
+  local render = harness.filter("typst-adapter.lua", "typst")[1].Div
+  local function div(...)
+    return pandoc.Div({ ... }, { class = "latex-svg" })
+  end
+  local tabular = pandoc.RawBlock("latex", "\\begin{tabular}{|c|}\n\\hline\n$\\R$ \\\\\n\\hline\n\\end{tabular}")
+
+  local out = render(div(tabular))
+  equal(out.format, "typst", "a latex-svg div becomes Typst")
+  check(out.text:find('format: "svg"', 1, true), "a latex-svg div embeds an SVG", out.text:sub(1, 80))
+  equal(render(pandoc.Div({ tabular }, { class = "other" })), nil, "other divs stay")
+
+  check(not pcall(render, div(pandoc.Para({ pandoc.Str("x") }))), "a latex-svg div needs raw LaTeX", "no warning")
+  check(not pcall(render, div(pandoc.RawBlock("latex", "\\undefinedcommand"))), "a LaTeX failure warns", "no warning")
 end
 
 for _, test in ipairs({
   tokens_round_trip, argument_parsing, allowed_commands_pass_through, every_defined_command_expands,
   expansion_composes, stays_balanced, every_rule_has_a_form, theorems, code_output, html_layout, svg_cache,
-  typst_layout, kern_runs, raw_latex,
+  typst_layout, kern_runs, raw_latex, table_captions, exact_latex,
 }) do
   local ok, message = pcall(test)
   check(ok, "error", message)

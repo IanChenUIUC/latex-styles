@@ -31,3 +31,11 @@ $$\inferrule{\Gamma \vdash a}{\Gamma \vdash \R}$$
 $\R$ & b \\
 \hline
 \end{tabular}
+
+::: {.latex-svg}
+\begin{tabular}{|c|c|}
+\hline
+$\R$ & b \\
+\hline
+\end{tabular}
+:::
