@@ -1,0 +1,55 @@
+\documentclass{article}
+
+\usepackage{notes}
+\usepackage{math}
+\usepackage{scribe}
+
+% for citations
+\usepackage[backend=biber,style=numeric,defernumbers=true]{biblatex}
+\addbibresource{refs.bib}
+
+% frontmatter
+\title{<topic>}
+\author{<lecturer>}
+\course{SIGma}
+\semester{Fall 2026}
+\date{<date>}
+\scribe{<scribe>}
+
+\begin{document}
+\maketitle
+
+<intro>, from~\parencite{<key>}.
+
+\section{<section>}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{example-image}
+    \caption{\textbf{<Name>:} <description>.}
+    \label{fig:<name>}
+\end{figure}
+
+See Fig.~\ref{fig:<name>}.
+
+\begin{prop}
+    <statement>
+\end{prop}
+
+\begin{pf}
+    <proof>
+\end{pf}
+
+% The part after \soln is moved to \printsolutions.
+\begin{exercise}[<optional name>]
+    <problem>
+    \soln
+    <solution>
+\end{exercise}
+
+\section*{solutions}
+\printsolutions
+
+\printbibliography
+
+\end{document}
